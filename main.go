@@ -17,25 +17,33 @@ func checkError(desc string, err error) {
 
 func main() {
 	host := flag.String("host", "127.0.0.1", "udp host of server to contact to ")
-	port := flag.Int("port", 90, "udp port of server to contact to")
+	port := flag.Int("port", 9090, "udp port of server to contact to")
 	data := flag.String("data", "Test Data from Client", "data to send to server")
 
 	address := fmt.Sprintf("%s:%d", *host, *port)
+	localAddr := send(address, *data)
+	read(localAddr)
+}
 
+func send(address, data string) net.Addr {
 	fmt.Printf("Connecting to %s\n", address)
 
 	conn, err := net.Dial("udp", address)
 	checkError("open connection", err)
+	localAdd := conn.LocalAddr()
 	defer conn.Close()
 
-	go func() {
-		fmt.Printf("Writing test data, timeout 10 seconds\n")
-		conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-		_, err = conn.Write([]byte(*data))
-		checkError("Writing data", err)
-	}()
+	fmt.Printf("Writing test data, timeout 10 seconds\n")
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	_, err = conn.Write([]byte(data))
+	checkError("Writing data", err)
 
-	serverAddr, err := net.ResolveUDPAddr("udp", conn.LocalAddr().String())
+
+	return localAdd
+}
+
+func read(localAdd net.Addr) {
+	serverAddr, err := net.ResolveUDPAddr("udp", localAdd.String())
 	checkError("Resolve udp address", err)
 
 	serverConn, err := net.ListenUDP("udp", serverAddr)
